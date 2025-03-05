@@ -862,7 +862,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--log-level",
         default="info",
-        choices=["critical", "warninfo", "debug"],
+        choices=["critical", "warn", "info", "debug"],
         help="Logging level",
     )
     parser.add_argument("--pdb", action="store_true", help="Drop into pdb on exception")
