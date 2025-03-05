@@ -1,7 +1,9 @@
 extern crate wpt_interop as interop;
 use interop::TestStatus;
+use pyo3::conversion::IntoPyObjectExt;
 use pyo3::exceptions::PyOSError;
 use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList};
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::TryFrom;
 use std::fmt;
@@ -130,16 +132,16 @@ fn interop_score(
 #[pyfunction]
 fn run_results(
     results_repo: PathBuf,
-    run_ids: Vec<u64>,
+    run_ids: Vec<String>,
     tests: BTreeSet<String>,
 ) -> PyResult<Vec<BTreeMap<String, Results>>> {
-    let results_cache: interop::results_cache::ResultsCache =
-        interop::results_cache::ResultsCache::new(&results_repo).map_err(Error::from)?;
+    let results_cache = interop::results_cache::get(&results_repo).map_err(Error::from)?;
+
     let mut results = Vec::with_capacity(run_ids.len());
     for run_id in run_ids.into_iter() {
         let mut run_results: BTreeMap<String, Results> = BTreeMap::new();
         for (key, value) in results_cache
-            .results(run_id, Some(&tests))
+            .results(&run_id, Some(&tests))
             .map_err(Error::from)?
             .into_iter()
         {
@@ -153,7 +155,7 @@ fn run_results(
 #[pyfunction]
 fn score_runs(
     results_repo: PathBuf,
-    run_ids: Vec<u64>,
+    run_ids: Vec<String>,
     tests_by_category: BTreeMap<String, BTreeSet<String>>,
     expected_not_ok: BTreeSet<String>,
 ) -> PyResult<(
@@ -165,12 +167,11 @@ fn score_runs(
     for tests in tests_by_category.values() {
         all_tests.extend(tests.iter().map(|item| item.into()));
     }
-    let results_cache: interop::results_cache::ResultsCache =
-        interop::results_cache::ResultsCache::new(&results_repo).map_err(Error::from)?;
+    let results_cache = interop::results_cache::get(&results_repo).map_err(Error::from)?;
 
     let run_results = run_ids
         .into_iter()
-        .map(|run_id| results_cache.results(run_id, Some(&all_tests)))
+        .map(|run_id| results_cache.results(&run_id, Some(&all_tests)))
         .collect::<interop::Result<Vec<_>>>()
         .map_err(Error::from)?;
     Ok(interop::score_runs(
@@ -228,17 +229,16 @@ type Labels = Vec<String>;
 fn regressions(
     results_repo: PathBuf,
     metadata_repo_path: PathBuf,
-    run_ids: (u64, u64),
+    run_ids: (String, String),
 ) -> PyResult<BTreeMap<String, (TestRegression, SubtestRegression, Labels)>> {
-    let results_cache: interop::results_cache::ResultsCache =
-        interop::results_cache::ResultsCache::new(&results_repo).map_err(Error::from)?;
+    let results_cache = interop::results_cache::get(&results_repo).map_err(Error::from)?;
     let (_, metadata) =
         interop::metadata::load_metadata(&metadata_repo_path, None).map_err(Error::from)?;
     let base_results = results_cache
-        .results(run_ids.0, None)
+        .results(&run_ids.0, None)
         .map_err(Error::from)?;
     let comparison_results = results_cache
-        .results(run_ids.1, None)
+        .results(&run_ids.1, None)
         .map_err(Error::from)?;
 
     let mut regressed = BTreeMap::new();
@@ -281,6 +281,120 @@ fn regressions(
     Ok(regressed)
 }
 
+#[pyclass]
+struct GeckoRuns {
+    #[pyo3(get)]
+    push_date: chrono::NaiveDateTime,
+    #[pyo3(get)]
+    runs: BTreeMap<String, GeckoRun>,
+}
+
+impl From<interop::results_cache::GeckoRuns> for GeckoRuns {
+    fn from(value: interop::results_cache::GeckoRuns) -> Self {
+        let mut runs = BTreeMap::new();
+        for (key, value) in value.runs.into_iter() {
+            runs.insert(key, GeckoRun::from(value));
+        }
+        GeckoRuns {
+            push_date: value.push_date,
+            runs,
+        }
+    }
+}
+
+#[pyclass]
+#[derive(Clone)]
+struct GeckoRun {
+    #[pyo3(get)]
+    id: String,
+    #[pyo3(get)]
+    run_info: BTreeMap<String, Json>,
+}
+
+#[derive(Clone)]
+struct Json(serde_json::Value);
+
+impl<'py> IntoPyObject<'py> for Json {
+    type Target = PyAny; // the Python type
+    type Output = Bound<'py, Self::Target>; // in most cases this will be `Bound`
+    type Error = PyErr; // the conversion error type, has to be convertable to `PyErr`
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        Ok(serde_json_to_py(py, self.0)?.into_bound(py))
+    }
+}
+
+impl From<interop::results_cache::GeckoRun> for GeckoRun {
+    fn from(value: interop::results_cache::GeckoRun) -> Self {
+        let mut run_info = BTreeMap::new();
+        for (key, json_val) in value.run_info.into_iter() {
+            run_info.insert(key, Json(json_val));
+        }
+        GeckoRun {
+            id: value.id,
+            run_info,
+        }
+    }
+}
+
+fn serde_json_to_py(py: Python<'_>, value: serde_json::Value) -> PyResult<PyObject> {
+    let out_value = match value {
+        serde_json::Value::Null => py.None().into_py_any(py),
+        serde_json::Value::Bool(x) => x.into_py_any(py),
+        serde_json::Value::Number(number) => {
+            if number.is_i64() {
+                number.as_i64().into_py_any(py)
+            } else if number.is_u64() {
+                number.as_u64().into_py_any(py)
+            } else if number.is_f64() {
+                number.as_f64().into_py_any(py)
+            } else {
+                Err(pyo3::exceptions::PyTypeError::new_err("Invalid number"))
+            }
+        }
+        serde_json::Value::String(s) => s.into_py_any(py),
+        serde_json::Value::Array(vec) => {
+            let result = PyList::empty(py);
+            for x in vec.into_iter() {
+                result.append(serde_json_to_py(py, x)?)?;
+            }
+            result.into_py_any(py)
+        }
+        serde_json::Value::Object(map) => {
+            let result = PyDict::new(py);
+            for (key, x) in map.into_iter() {
+                result.set_item(key, serde_json_to_py(py, x)?)?
+            }
+            result.into_py_any(py)
+        }
+    }?;
+    out_value.into_py_any(py)
+}
+
+#[pyfunction]
+#[pyo3(signature = (results_repo, branch, from_date, to_date=None))]
+fn gecko_runs(
+    results_repo: PathBuf,
+    branch: String,
+    from_date: chrono::NaiveDate,
+    to_date: Option<chrono::NaiveDate>,
+) -> PyResult<BTreeMap<chrono::NaiveDate, BTreeMap<String, GeckoRuns>>> {
+    let results_cache =
+        interop::results_cache::GeckoResultsCache::new(&results_repo).map_err(Error::from)?;
+    let runs = results_cache
+        .get_runs(&branch, from_date, to_date)
+        .map_err(Error::from)?;
+    let mut rv = BTreeMap::new();
+    for (date, date_data) in runs.into_iter() {
+        let mut date_result = BTreeMap::new();
+        for (commit, commit_data) in date_data.into_iter() {
+            date_result.insert(commit, GeckoRuns::from(commit_data));
+        }
+        rv.insert(date, date_result);
+    }
+    Ok(rv)
+}
+
 #[pymodule]
 #[pyo3(name = "_wpt_interop")]
 fn _wpt_interop(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -289,5 +403,6 @@ fn _wpt_interop(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(score_runs, m)?)?;
     m.add_function(wrap_pyfunction!(interop_tests, m)?)?;
     m.add_function(wrap_pyfunction!(regressions, m)?)?;
+    m.add_function(wrap_pyfunction!(gecko_runs, m)?)?;
     Ok(())
 }
