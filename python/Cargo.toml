@@ -9,6 +9,7 @@ name = "py_wpt_interop"
 crate-type = ["cdylib"]
 
 [dependencies]
-wpt-interop = { path = "../core" }
-pyo3 = "0.23.4"
+chrono = "0.4"
+pyo3 = { version = "0.23.4", features = ["chrono", "serde"] }
 serde_json = "1"
+wpt-interop = { path = "../core" }
