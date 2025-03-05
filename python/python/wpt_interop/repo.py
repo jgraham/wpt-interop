@@ -14,6 +14,7 @@ class Repo:
     bare: bool
     main_branch: Optional[str] = None
     fetch_tags: bool = False
+    fetch_spec: Optional[list[str]] = None
 
     def __init__(self, path: Optional[str], repo_root: Optional[str]):
         if repo_root is None:
@@ -60,7 +61,7 @@ class Repo:
             os.makedirs(self.path)
             args = []
             if self.bare:
-                args.append("--bare")
+                args.append("--mirror")
             if self.fetch_tags:
                 args.append("--tags")
 
@@ -80,12 +81,16 @@ class Repo:
                 args.append("+refs/heads/*:refs/heads/*")
                 if self.fetch_tags:
                     args.append("+refs/tags/*:refs/tags/*")
+                if self.fetch_spec:
+                    args.extend(self.fetch_spec)
             else:
                 assert self.main_branch is not None
                 remotes = self.git("remote")
                 if b"origin\n" not in remotes.stdout:
                     self.git("remote", "add", "origin", self.remote)
                 args.append("+refs/heads/*:refs/remotes/origin/*")
+                if self.fetch_spec:
+                    args.extend(self.fetch_spec)
             self.git("fetch", *args)
             if self.main_branch is not None:
                 try:
@@ -123,10 +128,22 @@ class Repo:
 
 
 class ResultsAnalysisCache(Repo):
+    ...
+
+
+class WptResultsAnalysisCache(ResultsAnalysisCache):
     name = "results-analysis-cache.git"
     remote = "https://github.com/web-platform-tests/results-analysis-cache.git"
     bare = True
     fetch_tags = True
+
+
+class GeckoResultsAnalysisCache(ResultsAnalysisCache):
+    name = "gecko-wpt-results.git"
+    remote = None
+    bare = True
+    fetch_tags = True
+    fetch_spec = ["+refs/runs/*:refs/runs/*"]
 
 
 class Metadata(Repo):

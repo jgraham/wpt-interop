@@ -3,14 +3,24 @@ import csv
 import json
 import logging
 import os
+from dataclasses import dataclass
 from datetime import datetime
 from types import TracebackType
-from typing import Any, Iterable, Iterator, Mapping, Optional, Self, cast
+from typing import Any, Iterable, Iterator, Mapping, MutableSequence, Optional, Self, cast
 
 from . import _wpt_interop
 from . import metadata
-from .runs import RevisionRuns, Run, RunCacheData, RunsByRevision, fetch_runs
-from .repo import Repo, ResultsAnalysisCache, Metadata
+from .runs import (
+    RevisionRuns,
+    Run,
+    WptFyiRun,
+    GeckoRun,
+    RunCacheData,
+    RunsByRevision,
+    fetch_runs_gecko,
+    fetch_runs_wptfyi,
+)
+from .repo import Repo, ResultsAnalysisCache, GeckoResultsAnalysisCache, WptResultsAnalysisCache, Metadata
 
 InteropScores = Mapping[str, int]
 ScoresByCategory = Mapping[str, list[int]]
@@ -18,11 +28,12 @@ ScoresByCategory = Mapping[str, list[int]]
 logger = logging.getLogger("wpt_interop.main")
 
 
+@dataclass
 class Configuration:
-    def __init__(self, platform: str, channel: str, products: list[str]):
-        self.platform = platform
-        self.products = products
-        self.channel = channel
+    platform: str
+    channel: str
+    products: list[str]
+    source: str = "wpt"
 
 
 class Interop:
@@ -100,8 +111,15 @@ all_interops = [Interop2023, Interop2024, Interop2025]
 interop_cls_by_year = cast(Mapping[int, type[Interop]], {item.year: item for item in all_interops})
 
 
-def platform_prefix(configuration: Configuration) -> str:
-    return "" if configuration.platform == "desktop" else f"{configuration.platform}-"
+def revision_prefix(configuration: Configuration) -> str:
+    prefix = []
+    if configuration.source != "wpt":
+        prefix.append(configuration.source)
+    if configuration.platform != "desktop":
+        prefix.append(configuration.platform)
+    if prefix:
+        return f"{'-'.join(prefix)}-"
+    return ""
 
 
 class InteropScore(Repo):
@@ -195,7 +213,7 @@ class RevisionData:
     @staticmethod
     def path(base_path: str, configuration: Configuration) -> str:
         runs_path = os.path.join(
-            base_path, f"runs-{platform_prefix(configuration)}{configuration.channel}.json"
+            base_path, f"runs-{revision_prefix(configuration)}{configuration.channel}.json"
         )
         return runs_path
 
@@ -204,7 +222,14 @@ class RevisionData:
         runs_path = RevisionData.path(base_path, configuration)
         try:
             with open(runs_path) as f:
-                runs = [Run.from_json(item) for item in json.load(f)]
+                if configuration.source == "wpt":
+                    runs = cast(
+                        MutableSequence[Run], [WptFyiRun.from_json(item) for item in json.load(f)]
+                    )
+                else:
+                    runs = cast(
+                        MutableSequence[Run], [GeckoRun.from_json(item) for item in json.load(f)]
+                    )
         except (OSError, json.JSONDecodeError):
             runs = []
         return RevisionData(RevisionRuns(revision, runs))
@@ -229,7 +254,7 @@ class RevisionData:
 
         score_path = os.path.join(
             base_path,
-            f"{run.browser_name}-{platform_prefix(configuration)}{configuration.channel}-{metadata_revision}.csv",
+            f"{run.browser_name}-{revision_prefix(configuration)}{configuration.channel}-{metadata_revision}.csv",
         )
         self.write(score_path, interop, score)
         updated_files.append(score_path)
@@ -353,11 +378,11 @@ class AlignedRuns:
         return (
             os.path.join(
                 base_path,
-                f"{platform_prefix(configuration)}{configuration.channel}-current{suffix}.csv",
+                f"{revision_prefix(configuration)}{configuration.channel}-current{suffix}.csv",
             ),
             os.path.join(
                 base_path,
-                f"{platform_prefix(configuration)}{configuration.channel}-current-metadata.json",
+                f"{revision_prefix(configuration)}{configuration.channel}-current-metadata.json",
             ),
         )
 
@@ -448,7 +473,7 @@ class HistoricAlignedRuns:
     @staticmethod
     def path(base_path: str, configuration: Configuration, date_only: bool = False) -> str:
         return os.path.join(
-            base_path, f"{platform_prefix(configuration)}{configuration.channel}-historic.csv"
+            base_path, f"{revision_prefix(configuration)}{configuration.channel}-historic.csv"
         )
 
     @classmethod
@@ -632,7 +657,9 @@ class RunCache:
         pass
 
 
-def updated_runs(old_runs: RunsByRevision, new_runs: RunsByRevision) -> Mapping[str, list[Run]]:
+def updated_runs(
+    old_runs: RunsByRevision, new_runs: RunsByRevision
+) -> Mapping[str, MutableSequence[Run]]:
     updated = {}
     for runs in new_runs:
         if runs.revision not in old_runs:
@@ -666,6 +693,46 @@ def score_aligned_runs(
     )
 
 
+def get_runs(
+    results_analysis_repo: ResultsAnalysisCache,
+    interop: Interop,
+    configuration: Configuration,
+    aligned: bool,
+    run_cache: Optional[RunCache],
+) -> RunsByRevision:
+    from_date = datetime(interop.year, 1, 1)
+    to_date = min(interop.end_date, datetime.now())
+
+    if configuration.source == "wpt":
+        return fetch_runs_wptfyi(
+            configuration.products,
+            configuration.channel,
+            from_date,
+            to_date,
+            aligned=False,
+            run_cache=run_cache,
+        )
+    if configuration.source == "gecko":
+        run_info_filter: Mapping[str, int | str | bool] = {
+            "os": "linux",
+            "debug": False,
+            "bits": 64,
+            "asan": False,
+            "tsan": False,
+            "headless": False,
+            "display": "x11",
+            "ccov": False,
+            "privateBrowsing": False,
+            "fission": True,
+            "incOriginInit": False
+        }
+
+        runs = fetch_runs_gecko(results_analysis_repo, run_info_filter, from_date, to_date)
+        return runs
+
+    raise ValueError(f"Don't know how to get runs from source {configuration.source}")
+
+
 def update_configuration(
     results_analysis_repo: ResultsAnalysisCache,
     metadata_repo: Metadata,
@@ -682,13 +749,12 @@ def update_configuration(
 
     run_cache = RunCache(stored_runs)
 
-    all_runs = fetch_runs(
-        configuration.products,
-        configuration.channel,
+    all_runs = get_runs(
+        results_analysis_repo,
+        interop,
+        configuration,
         aligned=False,
         run_cache=run_cache,
-        from_date=datetime(interop.year, 1, 1),
-        to_date=min(interop.end_date, datetime.now()),
     )
 
     updated = updated_runs(stored_runs, all_runs)
@@ -802,7 +868,12 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pdb", action="store_true", help="Drop into pdb on exception")
     parser.add_argument("--repo-root", default=None, help="Base path for working repos")
     parser.add_argument(
-        "--results-analysis-cache", default=None, help="Path to results-analysis-cache repo"
+        "--wpt-results-analysis-cache", default=None, help="Path to wpt results-analysis-cache repo"
+    )
+    parser.add_argument(
+        "--gecko-results-analysis-cache",
+        default=None,
+        help="Path to gecko results-analysis-cache repo",
     )
     parser.add_argument("--metadata", default=None, help="Path to metadata repo")
     parser.add_argument("--interop-score", default=None, help="Path to output interop-score repo")
@@ -816,6 +887,50 @@ def get_parser() -> argparse.ArgumentParser:
         help="Commit complete changes even if there's an uncaught exception",
     )
     return parser
+
+
+def run(args: argparse.Namespace) -> None:
+    logging.basicConfig(level=logging.getLevelNamesMapping()[args.log_level.upper()])
+    logging.getLogger("wpt_interop").setLevel(logging.INFO)
+
+    results_analysis_repos = {
+        "wpt": WptResultsAnalysisCache(args.wpt_results_analysis_cache, args.repo_root),
+        "gecko": GeckoResultsAnalysisCache(args.gecko_results_analysis_cache, args.repo_root),
+    }
+    metadata_repo = Metadata(args.metadata, args.repo_root)
+    interop_repo = InteropScore(args.interop_score, args.repo_root)
+
+    years = args.years if args.years is not None else get_default_years()
+
+    for repo in [metadata_repo, interop_repo] + list(results_analysis_repos.values()):
+        repo.update()
+
+    for year in years:
+        try:
+            interop: Interop = interop_cls_by_year[year](args.wpt_fyi)
+        except KeyError:
+            raise argparse.ArgumentError(None, message=f"No such year {year}")
+
+        interop_repo.clean()
+
+        for configuration in interop.configurations:
+            results_analysis_repo = results_analysis_repos[configuration.source]
+
+            got_exception = False
+            try:
+                update_configuration(
+                    results_analysis_repo, metadata_repo, interop_repo, interop, configuration
+                )
+            except Exception:
+                got_exception = True
+                raise
+            finally:
+                if not got_exception or args.commit_on_error:
+                    msg = (
+                        f"Update interop score data for platform '{configuration.platform}' "
+                        f"channel '{configuration.channel}'"
+                    )
+                    interop_repo.commit(msg)
 
 
 def main() -> None:
@@ -833,45 +948,6 @@ def main() -> None:
             pdb.post_mortem()
         else:
             raise
-
-
-def run(args: argparse.Namespace) -> None:
-    logging.basicConfig(level=logging.getLevelNamesMapping()[args.log_level.upper()])
-    logging.getLogger("wpt_interop").setLevel(logging.INFO)
-
-    results_analysis_repo = ResultsAnalysisCache(args.results_analysis_cache, args.repo_root)
-    metadata_repo = Metadata(args.metadata, args.repo_root)
-    interop_repo = InteropScore(args.interop_score, args.repo_root)
-
-    years = args.years if args.years is not None else get_default_years()
-
-    for year in years:
-        try:
-            interop: Interop = interop_cls_by_year[year](args.wpt_fyi)
-        except KeyError:
-            raise argparse.ArgumentError(None, message=f"No such year {year}")
-
-        interop_repo.clean()
-
-        for repo in [results_analysis_repo, metadata_repo, interop_repo]:
-            repo.update()
-
-        for configuration in interop.configurations:
-            got_exception = False
-            try:
-                update_configuration(
-                    results_analysis_repo, metadata_repo, interop_repo, interop, configuration
-                )
-            except Exception:
-                got_exception = True
-                raise
-            finally:
-                if not got_exception or args.commit_on_error:
-                    msg = (
-                        f"Update interop score data for platform '{configuration.platform}' "
-                        f"channel '{configuration.channel}'"
-                    )
-                    interop_repo.commit(msg)
 
 
 if __name__ == "__main__":

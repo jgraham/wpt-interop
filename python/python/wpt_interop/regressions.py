@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from . import _wpt_interop
 from .repo import ResultsAnalysisCache, Metadata
-from .runs import fetch_runs
+from .runs import fetch_runs_wptfyi
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -60,7 +60,7 @@ def run(args: argparse.Namespace) -> None:
     now = datetime.now()
     from_date = datetime(now.year, now.month, now.day) - timedelta(days=7)
     browser_names = [args.base_browser, args.browser]
-    runs = fetch_runs(browser_names, "experimental", from_date=from_date, aligned=True)
+    runs = fetch_runs_wptfyi(browser_names, "experimental", from_date=from_date, aligned=True)
     if not runs:
         print("No aligned runs found in the last 7 days")
         return

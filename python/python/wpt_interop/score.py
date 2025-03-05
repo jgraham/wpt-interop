@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Iterable, Mapping, Optional, cast
 
 
 from . import _wpt_interop  # type: ignore
-from .runs import RunsByDate, fetch_runs, group_by_date
+from .runs import RunsByDate, fetch_runs_wptfyi, group_by_date
 from .metadata import get_category_data
 
 logger = logging.getLogger("wpt_interop.score")
@@ -176,7 +176,7 @@ def score_wptreports(
 
 def score_runs(
     year: int,
-    run_ids: Iterable[int],
+    run_ids: Iterable[str],
     results_cache_path: str = DEFAULT_RESULTS_CACHE_PATH,
     category_filter: Optional[Callable[[str], bool]] = None,
 ) -> tuple[RunScores, InteropScore, ExpectedFailureScores]:
@@ -203,7 +203,7 @@ def score_all_runs(
     update_results_cache(results_cache_path)
 
     from_date, to_date = date_range(year, from_date=from_date)
-    runs_by_revision = fetch_runs(
+    runs_by_revision = fetch_runs_wptfyi(
         products, "experimental" if experimental else "stable", from_date, to_date, aligned=False
     )
 
@@ -228,7 +228,7 @@ def score_aligned_runs(
     update_results_cache(results_cache_path)
 
     from_date, to_date = date_range(year)
-    runs_by_revision = fetch_runs(
+    runs_by_revision = fetch_runs_wptfyi(
         products,
         "experimental" if experimental else "stable",
         from_date,
@@ -273,7 +273,7 @@ def write_per_date_csv(
 
             writer.writerow(headers)
 
-            runs_by_revision = fetch_runs(
+            runs_by_revision = fetch_runs_wptfyi(
                 products,
                 "experimental" if experimental else "stable",
                 from_date,
