@@ -140,7 +140,7 @@ class WptResultsAnalysisCache(ResultsAnalysisCache):
 
 class GeckoResultsAnalysisCache(ResultsAnalysisCache):
     name = "gecko-wpt-results.git"
-    remote = None
+    remote = "https://github.com/jgraham/gecko-results-cache.git"
     bare = True
     fetch_tags = True
     fetch_spec = ["+refs/runs/*:refs/runs/*"]
