@@ -11,6 +11,7 @@ license = "BSD-3-Clause"
 name = "wpt_interop"
 
 [dependencies]
+chrono = { version = "0.4", features = ["serde"] }
 git2 = "0.20"
 openssl = { version = "0.10", features = ["vendored"] }
 serde = "1"
