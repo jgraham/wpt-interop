@@ -104,6 +104,7 @@ class Interop2025(Interop):
         Configuration("desktop", "beta", ["chrome", "firefox"]),
         Configuration("desktop", "stable", ["chrome", "firefox", "safari"]),
         Configuration("mobile", "experimental", ["chrome_android", "firefox_android"]),
+        Configuration("desktop", "experimental", ["firefox"], source="gecko"),
     ]
 
 
