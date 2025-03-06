@@ -887,6 +887,11 @@ def get_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Commit complete changes even if there's an uncaught exception",
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite local changes to output repo when pulling remote",
+    )
     return parser
 
 
@@ -904,7 +909,8 @@ def run(args: argparse.Namespace) -> None:
     years = args.years if args.years is not None else get_default_years()
 
     for repo in [metadata_repo, interop_repo] + list(results_analysis_repos.values()):
-        repo.update()
+        overwrite = args.overwrite and repo == interop_repo
+        repo.update(overwrite)
 
     for year in years:
         try:

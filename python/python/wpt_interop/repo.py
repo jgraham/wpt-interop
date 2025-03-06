@@ -54,7 +54,7 @@ class Repo:
                 return True
         return False
 
-    def update(self) -> None:
+    def update(self, overwrite: bool = False) -> None:
         logger.info(f"Updating repo {self.name} {self.path} {os.path.exists(self.path)}")
         if not os.path.exists(self.path):
             logger.info("Repo doesn't exist, creating a new clone")
@@ -99,7 +99,10 @@ class Repo:
                     self.git("checkout", "-b", self.main_branch, f"origin/{self.main_branch}")
 
                 self.git("checkout", self.main_branch)
-                self.git("merge", "--ff-only", f"origin/{self.main_branch}")
+                if overwrite:
+                    self.git("reset", "--hard", f"origin/{self.main_branch}")
+                else:
+                    self.git("merge", "--ff-only", f"origin/{self.main_branch}")
 
     def clean(self) -> None:
         if self.bare:
