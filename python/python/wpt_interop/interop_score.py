@@ -20,7 +20,13 @@ from .runs import (
     fetch_runs_gecko,
     fetch_runs_wptfyi,
 )
-from .repo import Repo, ResultsAnalysisCache, GeckoResultsAnalysisCache, WptResultsAnalysisCache, Metadata
+from .repo import (
+    Repo,
+    ResultsAnalysisCache,
+    GeckoResultsAnalysisCache,
+    WptResultsAnalysisCache,
+    Metadata,
+)
 
 InteropScores = Mapping[str, int]
 ScoresByCategory = Mapping[str, list[int]]
@@ -725,7 +731,7 @@ def get_runs(
             "ccov": False,
             "privateBrowsing": False,
             "fission": True,
-            "incOriginInit": False
+            "incOriginInit": False,
         }
 
         runs = fetch_runs_gecko(results_analysis_repo, run_info_filter, from_date, to_date)
