@@ -130,8 +130,7 @@ class Repo:
             logger.info(f"No changes in {self.name}")
 
 
-class ResultsAnalysisCache(Repo):
-    ...
+class ResultsAnalysisCache(Repo): ...
 
 
 class WptResultsAnalysisCache(ResultsAnalysisCache):
