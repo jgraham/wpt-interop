@@ -927,7 +927,9 @@ def run(args: argparse.Namespace) -> None:
         interop_repo.clean()
 
         for configuration in interop.configurations:
-            logger.info(f"Updating {configuration.platform} channel:{configuration.channel} source:{configuration.source}")
+            logger.info(
+                f"Updating {configuration.platform} channel:{configuration.channel} source:{configuration.source}"
+            )
             results_analysis_repo = results_analysis_repos[configuration.source]
 
             got_exception = False
