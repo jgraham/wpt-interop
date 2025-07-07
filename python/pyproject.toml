@@ -9,7 +9,7 @@ description = "web-platform-tests Interop Project helpers"
 author = "James Graham"
 author_email = "james@hoppipolla.co.uk"
 license = "BSD-3-Clause"
-version = "0.2.0"
+version = "0.2.1"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
