@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "wpt-interop"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 description = "web-platform-tests Interop Project helpers"
 author = "James Graham"
 author_email = "james@hoppipolla.co.uk"
