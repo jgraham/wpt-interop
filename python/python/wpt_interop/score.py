@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, cast
 
@@ -32,7 +33,21 @@ def is_gzip(path: str) -> bool:
         return False
 
 
-def load_wptreport(path: str) -> Mapping[str, Any]:
+@dataclass
+class SubtestResults:
+    name: str
+    status: str
+    expected: Optional[str] = None
+
+
+@dataclass
+class Results:
+    status: str
+    subtests: list[SubtestResults]
+    expected: Optional[str] = None
+
+
+def load_wptreport(path: str) -> Mapping[str, Results]:
     rv = {}
     opener = gzip.GzipFile if is_gzip(path) else open
     with opener(path) as f:  # type: ignore
@@ -41,9 +56,11 @@ def load_wptreport(path: str) -> Mapping[str, Any]:
         except Exception as e:
             raise IOError(f"Failed to read {path}") from e
     for item in data["results"]:
-        result = {"status": item["status"], "subtests": []}
-        for subtest in item["subtests"]:
-            result["subtests"].append({"name": subtest["name"], "status": subtest["status"]})
+        subtests = [
+            SubtestResults(name=subtest["name"], status=subtest["status"])
+            for subtest in item["subtests"]
+        ]
+        result = Results(status=item["status"], subtests=subtests)
         rv[item["test"]] = result
     return rv
 
@@ -59,7 +76,7 @@ def load_taskcluster_results(
         for test_name, results in log_results.items():
             if test_name not in all_tests:
                 continue
-            if results["status"] == "SKIP":
+            if results.status == "SKIP":
                 # Sometimes we have multiple jobs which log SKIP for tests that aren't run
                 continue
             if test_name in run_results:
@@ -67,11 +84,11 @@ def load_taskcluster_results(
             run_results[test_name] = results
             if test_name in expected_failures:
                 if None in expected_failures[test_name]:
-                    run_results[test_name]["expected"] = "FAIL"
+                    run_results[test_name].expected = "FAIL"
                 else:
-                    for subtest_result in run_results[test_name]:
-                        if subtest_result["name"] in expected_failures[test_name]:
-                            subtest_result["expected"] = "FAIL"
+                    for subtest_result in run_results[test_name].subtests:
+                        if subtest_result.name in expected_failures[test_name]:
+                            subtest_result.expected = "FAIL"
     return run_results
 
 
