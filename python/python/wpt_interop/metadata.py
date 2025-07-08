@@ -24,9 +24,10 @@ def fetch_interop_data(wpt_fyi: Optional[str] = None) -> Mapping[str, Mapping[st
     return requests.get(url).json()
 
 
-def fetch_labelled_tests() -> Mapping[str, set]:
+def fetch_labelled_tests(wpt_fyi: Optional[str] = None) -> Mapping[str, set]:
     rv = defaultdict(set)
-    data = requests.get(METADATA_URL).json()
+    url = urljoin(wpt_fyi if wpt_fyi is not None else DEFAULT_WPT_FYI, METADATA_URL)
+    data = requests.get(url).json()
     for test, metadata in data.items():
         for meta_item in metadata:
             if "label" in meta_item:
