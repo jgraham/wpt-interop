@@ -10,6 +10,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 chrono = "0.4"
-pyo3 = { version = "0.25.0", features = ["chrono", "serde"] }
+pyo3 = { version = "0.26.0", features = ["chrono", "serde"] }
 serde_json = "1"
 wpt-interop = { path = "../core" }
