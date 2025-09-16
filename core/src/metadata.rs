@@ -146,11 +146,11 @@ impl MetadataRepo {
         })
     }
 
-    pub fn head(&self) -> Result<git2::Commit> {
+    pub fn head(&self) -> Result<git2::Commit<'_>> {
         Ok(self.repo.head()?.peel_to_commit()?)
     }
 
-    pub fn get_commit(&self, revision: &str) -> Result<git2::Commit> {
+    pub fn get_commit(&self, revision: &str) -> Result<git2::Commit<'_>> {
         let oid = git2::Oid::from_str(revision)?;
         Ok(self.repo.find_commit(oid)?)
     }
