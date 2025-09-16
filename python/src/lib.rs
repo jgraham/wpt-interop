@@ -337,7 +337,7 @@ impl From<interop::results_cache::GeckoRun> for GeckoRun {
     }
 }
 
-fn serde_json_to_py(py: Python<'_>, value: serde_json::Value) -> PyResult<PyObject> {
+fn serde_json_to_py(py: Python<'_>, value: serde_json::Value) -> PyResult<Py<PyAny>> {
     let out_value = match value {
         serde_json::Value::Null => py.None().into_py_any(py),
         serde_json::Value::Bool(x) => x.into_py_any(py),
