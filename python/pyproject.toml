@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "mypy==1.18.1",
-  "ruff==0.13.0",
+  "ruff==0.13.1",
   "types-requests==2.32.4.20250913",
 ]
 
