@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, Mapping, Optional, cast
 
 
-from . import _wpt_interop  # type: ignore
+from . import _wpt_interop
 from .runs import RunsByDate, fetch_runs_wptfyi, group_by_date
 from .metadata import get_category_data
 
@@ -50,7 +50,7 @@ class Results:
 def load_wptreport(path: str) -> Mapping[str, Results]:
     rv = {}
     opener = gzip.GzipFile if is_gzip(path) else open
-    with opener(path) as f:  # type: ignore
+    with opener(path) as f:
         try:
             data = json.load(f)
         except Exception as e:
