@@ -104,7 +104,7 @@ class Interop2024(Interop):
 
 class Interop2025(Interop):
     year = 2025
-    end_date = datetime(2026, 2, 5)
+    end_date = datetime(2026, 2, 12)
     configurations = [
         Configuration("desktop", "experimental", ["chrome", "firefox", "safari"]),
         Configuration("desktop", "beta", ["chrome", "firefox"]),
@@ -114,7 +114,19 @@ class Interop2025(Interop):
     ]
 
 
-all_interops = [Interop2023, Interop2024, Interop2025]
+class Interop2026(Interop):
+    year = 2026
+    end_date = datetime(2027, 2, 11)
+    configurations = [
+        Configuration("desktop", "experimental", ["chrome", "firefox", "safari"]),
+        Configuration("desktop", "beta", ["chrome", "firefox"]),
+        Configuration("desktop", "stable", ["chrome", "firefox", "safari"]),
+        Configuration("mobile", "experimental", ["chrome_android", "firefox_android"]),
+        Configuration("desktop", "experimental", ["firefox"], source="gecko"),
+    ]
+
+
+all_interops = [Interop2023, Interop2024, Interop2025, Interop2026]
 interop_cls_by_year = cast(Mapping[int, type[Interop]], {item.year: item for item in all_interops})
 
 
