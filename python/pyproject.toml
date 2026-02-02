@@ -24,7 +24,7 @@ dependencies = [
 test = [
   "mypy==1.18.2",
   "ruff==0.14.14",
-  "types-requests==2.32.4.20250913",
+  "types-requests==2.32.4.20260107",
 ]
 
 
