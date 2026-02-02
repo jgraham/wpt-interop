@@ -42,7 +42,7 @@ jobs:
           before-script-linux: |
             if command -v yum &> /dev/null
             then
-              yum install -y openssl openssl-devel perl perl-IPC-Cmd
+              yum install -y openssl openssl-devel perl perl-IPC-Cmd perl-Time-Piece
             fi
           args: --release --out dist --find-interpreter -m python/Cargo.toml
           sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
