@@ -9,6 +9,6 @@ cargo test
 
 cd python
 uv sync --extra=test
-uv run mypy python/wpt_interop/
+uv run ty check python/wpt_interop/
 uv run ruff check
 uv run ruff format --check

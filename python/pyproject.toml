@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "wpt-interop"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 description = "web-platform-tests Interop Project helpers"
 author = "James Graham"
 author_email = "james@hoppipolla.co.uk"
@@ -22,7 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-  "mypy==1.18.2",
+  "ty==0.0.14",
   "ruff==0.14.14",
   "types-requests==2.32.4.20250913",
 ]

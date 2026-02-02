@@ -13,6 +13,7 @@ from typing import (
     MutableSequence,
     Optional,
     Sequence,
+    cast,
 )
 from urllib.parse import urlencode
 
@@ -174,7 +175,7 @@ class WptFyiRun(Run):
             datetime.fromisoformat(time_end),
             results_url,
             raw_results_url,
-            labels,
+            cast(labels, list[str]),
         )
 
     def to_json(self) -> MutableMapping[str, Json]:
