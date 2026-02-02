@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 import requests
 
-DEFAULT_WPT_FYI = "https://wpt.fyi/"
+DEFAULT_WPT_FYI = "https://activate-interop-2026-dot-wptdashboard-staging.uk.r.appspot.com/"
 CATEGORY_URL = (
     "https://raw.githubusercontent.com/web-platform-tests/"
     "results-analysis/main/interop-scoring/category-data.json"
