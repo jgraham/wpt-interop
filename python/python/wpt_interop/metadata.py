@@ -8,7 +8,7 @@ import requests
 DEFAULT_WPT_FYI = "https://activate-interop-2026-dot-wptdashboard-staging.uk.r.appspot.com/"
 CATEGORY_URL = (
     "https://raw.githubusercontent.com/web-platform-tests/"
-    "results-analysis/interop-2026-data/interop-scoring/category-data.json"
+    "results-analysis/main/interop-scoring/category-data.json"
 )
 INTEROP_DATA_URL = "/static/interop-data.json"
 METADATA_URL = "/api/metadata?includeTestLevel=true&product=chrome"
