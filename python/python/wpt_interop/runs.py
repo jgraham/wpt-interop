@@ -175,7 +175,7 @@ class WptFyiRun(Run):
             datetime.fromisoformat(time_end),
             results_url,
             raw_results_url,
-            cast(labels, list[str]),
+            cast(list[str], labels),
         )
 
     def to_json(self) -> MutableMapping[str, Json]:
