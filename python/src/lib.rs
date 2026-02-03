@@ -302,7 +302,7 @@ impl From<interop::results_cache::GeckoRuns> for GeckoRuns {
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[derive(Clone)]
 struct GeckoRun {
     #[pyo3(get)]
