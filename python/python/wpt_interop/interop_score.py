@@ -574,7 +574,8 @@ def read_scores_csv(
     product_version_keys: dict[str, Optional[int]] = {item: None for item in configuration.products}
     product_score_index = {product: i for i, product in enumerate(configuration.products)}
     scores_by_category_keys: dict[str, list[Optional[int]]] = {
-        category: [None] * len(configuration.products) for category in categories
+        category: [cast(Optional[int], None)] * len(configuration.products)
+        for category in categories
     }
 
     if has_interop_data:
