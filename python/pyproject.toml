@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
   "ty==0.0.52",
-  "ruff==0.15.15",
+  "ruff==0.15.18",
   "types-requests==2.32.4.20260107",
 ]
 
