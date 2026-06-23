@@ -26,18 +26,14 @@ pub trait ResultsCache {
             for tree_entry in tree.iter() {
                 match tree_entry.kind() {
                     Some(git2::ObjectType::Tree) => {
-                        let name = tree_entry.name().ok_or_else(|| {
-                            Error::String(format!("Tree has non-utf8 name {:?}", tree_entry.name()))
-                        })?;
+                        let name = tree_entry.name()?;
                         stack.push((
                             tree_entry.to_object(repo)?.peel_to_tree()?,
                             format!("{}/{}", path, name),
                         ));
                     }
                     Some(git2::ObjectType::Blob) => {
-                        let name = tree_entry.name().ok_or_else(|| {
-                            Error::String(format!("Tree has non-utf8 name {:?}", tree_entry.name()))
-                        })?;
+                        let name = tree_entry.name()?;
                         let test_name = match name.rsplit_once('.') {
                             Some((test_name, "json")) => urlencoding::decode(test_name),
                             Some((_, _)) | None => {
@@ -139,7 +135,7 @@ impl GeckoResultsCache {
             if let Ok(tree_entry) = index_tree.get_path(&date_path) {
                 let commit_tree = tree_entry.to_object(repo)?.peel_to_tree()?;
                 for commit_entry in commit_tree.iter() {
-                    if let Some(name) = commit_entry.name() {
+                    if let Ok(name) = commit_entry.name() {
                         if !name.ends_with(".json") {
                             continue;
                         }

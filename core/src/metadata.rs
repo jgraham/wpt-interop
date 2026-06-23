@@ -163,9 +163,7 @@ impl MetadataRepo {
             for tree_entry in tree.iter() {
                 match tree_entry.kind() {
                     Some(git2::ObjectType::Tree) => {
-                        let name = tree_entry.name().ok_or_else(|| {
-                            Error::String(format!("Tree has non-utf8 name {:?}", tree_entry.name()))
-                        })?;
+                        let name = tree_entry.name()?;
                         if name.starts_with('.') {
                             continue;
                         }
@@ -175,9 +173,7 @@ impl MetadataRepo {
                         ));
                     }
                     Some(git2::ObjectType::Blob) => {
-                        let name = tree_entry.name().ok_or_else(|| {
-                            Error::String(format!("Tree has non-utf8 name {:?}", tree_entry.name()))
-                        })?;
+                        let name = tree_entry.name()?;
                         if name == "META.yml" {
                             let blob = tree_entry.to_object(&self.repo)?.peel_to_blob()?;
                             let metadata_file: MetadataFile =
