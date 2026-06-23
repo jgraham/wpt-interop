@@ -12,7 +12,7 @@ name = "wpt_interop"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
-git2 = "0.20"
+git2 = "0.21"
 openssl = { version = "0.10", features = ["vendored"] }
 serde = "1"
 serde_derive = "1"
