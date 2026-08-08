@@ -6,7 +6,7 @@ import os
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, Iterable, Mapping, Optional, cast
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, cast, Sequence
 
 
 from . import _wpt_interop
@@ -20,6 +20,9 @@ DEFAULT_RESULTS_CACHE_PATH = os.path.join(os.path.abspath(os.curdir), "results-a
 RunScores = Mapping[str, list[int]]
 InteropScore = Mapping[str, int]
 ExpectedFailureScores = Mapping[str, list[tuple[int, int]]]
+
+SubtestFailures = Mapping[Optional[str], str]
+RunFailures = Mapping[str, Mapping[str, SubtestFailures]]
 
 
 def is_gzip(path: str) -> bool:
@@ -69,7 +72,7 @@ def load_taskcluster_results(
     log_paths: Iterable[str],
     all_tests: set[str],
     expected_failures: Mapping[str, set[Optional[str]]],
-) -> Mapping[str, Any]:
+) -> Mapping[str, Results]:
     run_results = {}
     for path in log_paths:
         log_results = load_wptreport(path)
@@ -189,6 +192,59 @@ def score_wptreports(
         expected_failure_scores = None
 
     return run_scores, expected_failure_scores
+
+
+def _serialize_failures(
+    tests_by_category: Mapping[str, set[str]],
+    runs_results: Iterable[Mapping[str, Results | _wpt_interop.Results]],
+) -> Sequence[RunFailures]:
+    rv = []
+    for results in runs_results:
+        run_failures = {}
+        for category, tests in tests_by_category.items():
+            category_failures = {}
+            for test in tests:
+                test_result = results.get(test)
+                if test_result is None:
+                    continue
+                test_failures = {}
+                if test_result.status not in ("PASS", "OK"):
+                    test_failures[None] = test_result.status
+                for subtest in test_result.subtests:
+                    if subtest.status != "PASS":
+                        test_failures[subtest.name] = subtest.status
+                if test_failures:
+                    category_failures[test] = test_failures
+            run_failures[category] = category_failures
+        rv.append(run_failures)
+    return rv
+
+
+def list_failures_wptreports(
+    run_logs: Iterable[Iterable[str]],
+    year: int,
+    category_filter: Optional[Callable[[str], bool]] = None,
+) -> Sequence[RunFailures]:
+    tests_by_category, all_tests = get_category_data(year, category_filter=category_filter)
+    runs_results = []
+    for log_paths in run_logs:
+        runs_results.append(load_taskcluster_results(log_paths, all_tests, {}))
+
+    return _serialize_failures(tests_by_category, runs_results)
+
+
+def list_failures(
+    year: int,
+    run_ids: Iterable[str],
+    results_cache_path: str = DEFAULT_RESULTS_CACHE_PATH,
+    category_filter: Optional[Callable[[str], bool]] = None,
+):
+    tests_by_category, all_tests = get_category_data(year, category_filter=category_filter)
+
+    update_results_cache(results_cache_path)
+
+    runs_results = _wpt_interop.run_results(results_cache_path, list(run_ids), all_tests)
+    return _serialize_failures(tests_by_category, runs_results)
 
 
 def score_runs(
