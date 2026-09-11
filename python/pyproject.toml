@@ -24,7 +24,7 @@ dependencies = [
 test = [
   "ty==0.0.79",
   "ruff==0.15.21",
-  "types-requests==2.33.0.20260712",
+  "types-requests==2.33.0.20260906",
 ]
 
 
