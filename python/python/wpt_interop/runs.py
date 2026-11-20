@@ -389,8 +389,8 @@ def fetch_runs_gecko(
                     )
             if revision_runs:
                 rv.append(revision_runs)
-                # TODO: remove this
-                assert len(revision_runs) == 1
+                if len(revision_runs) != 1:
+                    logger.warning(f"Got multiple runs for gecko commit {commit}")
 
     return RunsByRevision(rv)
 
